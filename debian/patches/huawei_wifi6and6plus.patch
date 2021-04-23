@@ -1,0 +1,287 @@
+Index: wpa-2.9/wpa_supplicant/bss.c
+===================================================================
+--- wpa-2.9.orig/wpa_supplicant/bss.c	2019-08-07 21:25:25.000000000 +0800
++++ wpa-2.9/wpa_supplicant/bss.c	2021-04-23 20:00:46.988993251 +0800
+@@ -309,7 +309,162 @@
+ 	calculate_update_time(fetch_time, src->age, &dst->last_update);
+ }
+ 
++static u8 wpa_bss_get_160m_support_capability(struct wpa_bss *bss)
++{
++    const u8 *ie;
++    unsigned int channelWidth = 0;
++	unsigned int channelCenterSegment0 = 0;
++	unsigned int channelCenterSegment1 = 0;
++
++    /*find the VHT operation information */
++    ie = wpa_bss_get_ie(bss, WLAN_EID_VHT_OPERATION);	
++	if (ie == NULL || (ie[1] <= WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT1_INDEX)) {
++    	wpa_printf(MSG_DEBUG, "wifi6wifi6+:  NOT found VHT tag for SSID %s "MACSTR, 
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++	}
++
++	/*if the channel width equals 160MHZ, this AP has wifi6+ capability.*/
++	channelWidth = ie[WIFI6WIFI6PLUS_HT_PRIMARY_CHANNEL_INDEX + 2];
++	if (channelWidth == CHANWIDTH_160MHZ) {
++    	wpa_printf(MSG_DEBUG, "wifi6wifi6+:  160MHZ supported(160MHZ) for SSID %s "MACSTR, 
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return WIFI6WIFI6PLUS_SUPPORTED;
++	}
++
++	/*if Not, */
++	channelCenterSegment0 = ie[WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT0_INDEX + 2];	
++	channelCenterSegment1 = ie[WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT1_INDEX + 2];	
++	wpa_printf(MSG_DEBUG, "wifi6wifi6+: SSID %s channelCenterSegment0:%d channelCenterSegment1:%d "MACSTR, 
++		wpa_ssid_txt(bss->ssid, bss->ssid_len), channelCenterSegment0, channelCenterSegment1, MAC2STR(bss->bssid));
++	if ((channelWidth == CHANWIDTH_80MHZ ) && channelCenterSegment0 && channelCenterSegment1 
++		&& abs(channelCenterSegment1 - channelCenterSegment0) == 8) {
++    	wpa_printf(MSG_DEBUG, "wifi6wifi6+: 160MHZ supported for SSID %s "MACSTR, 
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return WIFI6WIFI6PLUS_SUPPORTED;
++	}
++
++	wpa_printf(MSG_DEBUG, "wifi6wifi6+:  160MHZ NOT supported for SSID %s "MACSTR, 
++		wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++	return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++}
++static u8 wpa_bss_get_narrowband_capability(struct wpa_bss *bss)
++{
++    const u8 *ie;
++	u8 index;
++    u8 bcc_id_header[9] = {0, 0xE0, 0xFC, 0x40, 0, 0, 0, 0x01, 0};
++    unsigned int len = 0;
++
++    /*To fetch vendor specific IE*/
++    ie = wpa_bss_get_vendor_ie(bss, HW_IE_VENDOR_TYPE);	
++	if (ie == NULL || (ie[1] <= sizeof(bcc_id_header))) {
++    	wpa_printf(MSG_DEBUG, "wifi6wifi6+: vendor specific IE error1 for SSID %s "MACSTR, 
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return WIFI6WIFI6PLUS_NOT_SUPPORTED;	
++	}
++	
++	/*To match the BCC ID head.*/
++	for (index = 0; index < sizeof(bcc_id_header); index++) {
++		 wpa_printf(MSG_DEBUG, "wifi6wifi6+:  SSID %s ie[%d]:%d bcc_id_header:%d "MACSTR, 
++				wpa_ssid_txt(bss->ssid, bss->ssid_len), index+2,ie[index+2],bcc_id_header[index], MAC2STR(bss->bssid));
++        if ( ie[index + 2] != bcc_id_header[index]) {
++    		wpa_printf(MSG_DEBUG, "wifi6wifi6+: bcc_id_header not match error  SSID %s "MACSTR, 
++				wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++			return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++		}
++	}
++	
++	/*To find the narrowband sub ie entry, if successful, then to find the narrowband capability field and check its value.*/
++	index = WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE_INDEX;
++	while (ie[1] > ie[index + 1] ) {
++		 wpa_printf(MSG_DEBUG, "wifi6wifi6+: to match NB SUBIE for SSID %s ie[%d]:%d "MACSTR, 
++				wpa_ssid_txt(bss->ssid, bss->ssid_len), index, ie[index], MAC2STR(bss->bssid));
++		if (ie[index] == WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE) {
++		    wpa_printf(MSG_DEBUG, "wifi6wifi6+: NB SUBIE FOUND SSID %s "MACSTR, 
++				wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++			len = ie[index + 1];
++			index += len - WIFI6WIFI6PLUS_NARROWBAND_OFFSET;
++			if (index >= ie[1] ) {
++		    	wpa_printf(MSG_DEBUG, "wifi6wifi6+: Index ERROR SSID %s "MACSTR, 
++					wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++				return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++			}
++
++			if (WIFI6WIFI6PLUS_NARROWBAND_CAPABILITY == (ie[index] & WIFI6WIFI6PLUS_NARROWBAND_CAPABILITY)) {
++		    	wpa_printf(MSG_DEBUG, "wifi6wifi6+: narrowband supported for SSID %s "MACSTR, 
++					wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++				return WIFI6WIFI6PLUS_SUPPORTED;
++			}
++		}
++		len = ie[index + 1];
++		index += len + 2;
++	}
++
++	 wpa_printf(MSG_DEBUG, "wifi6wifi6+:  NB SUBIE NOT FOUND SSID %s ie[%d]:%d "MACSTR, 
++		wpa_ssid_txt(bss->ssid, bss->ssid_len), index, ie[index], MAC2STR(bss->bssid));
++	return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++}
++static u8 wpa_bss_get_wifi6_capability(struct wpa_bss *bss)
++{
++    const u8 *ie;
++
++    /*Whether this ap has wifi6 capability or not*/
++    ie = get_ie_ext((u8 *) (bss + 1), bss->ie_len, WLAN_EID_EXT_HE_CAPABILITIES);
++    if (ie) {
++		return WIFI6WIFI6PLUS_SUPPORTED;
++	}
++	return WIFI6WIFI6PLUS_NOT_SUPPORTED;
++}
+ 
++static void wpa_bss_get_wifi_category(struct wpa_bss *bss)
++{
++    u8 isWifi6Supported = 0;
++    u8 is160mBandSupported = 0;
++    u8 isNarrowbandSupported = 0;
++
++    wpa_printf(MSG_DEBUG, "\r\n--------wifi6wifi6+  detect starting for SSID %s--------"MACSTR,
++		wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++	/*Whether this ap has wifi6 capability or not*/
++	isWifi6Supported = wpa_bss_get_wifi6_capability(bss);
++	if (!isWifi6Supported){
++        wpa_printf(MSG_DEBUG, "wifi6wifi6+: Wifi6 Not Supported %d  SSID %s "MACSTR,
++		isWifi6Supported, wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		bss->category = WIFI6WIFI6PLUS_WIFI_CAPABILITY_DEFAULT;
++    	wpa_printf(MSG_DEBUG, "--------wifi6wifi6+  detect finished for SSID %s--------"MACSTR,
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return;
++    }
++
++	/*Whether this ap has wifi6 configure capability or not*/
++	is160mBandSupported = wpa_bss_get_160m_support_capability(bss);
++
++	if (is160mBandSupported){
++        wpa_printf(MSG_DEBUG, "wifi6wifi6+: Wifi6 + Supported %d  SSID %s "MACSTR,
++		is160mBandSupported, wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		bss->category = WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6_PLUS;
++    	wpa_printf(MSG_DEBUG, "--------wifi6wifi6+  detect finished for SSID %s--------"MACSTR,
++			wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		return;
++    }
++
++	/*Whether this ap has narrowband capability or not*/
++	isNarrowbandSupported = wpa_bss_get_narrowband_capability(bss);
++
++	/*at last updating category result to bss entry according to the above results.*/
++	if (isNarrowbandSupported) {
++        wpa_printf(MSG_DEBUG, "wifi6wifi6+: Wifi6 + Supported %d  SSID %s "MACSTR,
++		isNarrowbandSupported, wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		bss->category = WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6_PLUS;
++    }	
++	else {
++        wpa_printf(MSG_DEBUG, "wifi6wifi6+: Wifi6 Supported %d  SSID %s "MACSTR,
++		isWifi6Supported, wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++		bss->category = WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6;
++	}
++	wpa_printf(MSG_DEBUG, "--------wifi6wifi6+  detect finished for SSID %s-------- "MACSTR,
++		wpa_ssid_txt(bss->ssid, bss->ssid_len), MAC2STR(bss->bssid));
++	return;
++}
+ static int wpa_bss_is_wps_candidate(struct wpa_supplicant *wpa_s,
+ 				    struct wpa_bss *bss)
+ {
+@@ -445,7 +600,8 @@
+ 	bss->beacon_ie_len = res->beacon_ie_len;
+ 	os_memcpy(bss + 1, res + 1, res->ie_len + res->beacon_ie_len);
+ 	wpa_bss_set_hessid(bss);
+-
++    /*get the highest category of this ap and update into bss added by zwx955772 on 20210320*/
++    wpa_bss_get_wifi_category(bss);
+ 	if (wpa_s->num_bss + 1 > wpa_s->conf->bss_max_count &&
+ 	    wpa_bss_remove_oldest(wpa_s) != 0) {
+ 		wpa_printf(MSG_ERROR, "Increasing the MAX BSS count to %d "
+@@ -463,9 +619,9 @@
+ 	else
+ 		extra[0] = '\0';
+ 	wpa_dbg(wpa_s, MSG_DEBUG, "BSS: Add new id %u BSSID " MACSTR
+-		" SSID '%s' freq %d%s",
++		" SSID '%s' freq %d category %d %s",
+ 		bss->id, MAC2STR(bss->bssid), wpa_ssid_txt(ssid, ssid_len),
+-		bss->freq, extra);
++		bss->freq, bss->category, extra);
+ 	wpas_notify_bss_added(wpa_s, bss->bssid, bss->id);
+ 	return bss;
+ }
+Index: wpa-2.9/wpa_supplicant/bss.h
+===================================================================
+--- wpa-2.9.orig/wpa_supplicant/bss.h	2019-08-07 21:25:25.000000000 +0800
++++ wpa-2.9/wpa_supplicant/bss.h	2021-04-23 20:00:46.988993251 +0800
+@@ -19,6 +19,20 @@
+ #define WPA_BSS_ASSOCIATED		BIT(5)
+ #define WPA_BSS_ANQP_FETCH_TRIED	BIT(6)
+ 
++#define WIFI6WIFI6PLUS_NARROWBAND_CAPABILITY 0x20
++#define WIFI6WIFI6PLUS_HT_PRIMARY_CHANNEL_INDEX         0
++#define WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT0_INDEX            1
++#define WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT1_INDEX            2
++#define WIFI6WIFI6PLUS_WIFI_CAPABILITY_DEFAULT 0
++#define WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6 1
++#define WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6_PLUS 2
++#define WIFI6WIFI6PLUS_SUPPORTED 1
++#define WIFI6WIFI6PLUS_NOT_SUPPORTED 0
++#define WIFI6WIFI6PLUS_NARROWBAND_OFFSET        1
++#define WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE 0xFD
++#define WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE_INDEX 0x0B
++#define HW_IE_VENDOR_TYPE 0x00E0FC40
++
+ struct wpa_bss_anqp_elem {
+ 	struct dl_list list;
+ 	u16 infoid;
+@@ -102,6 +116,8 @@
+ 	unsigned int est_throughput;
+ 	/** Signal-to-noise ratio in dB */
+ 	int snr;
++    /*indicating wifi category(0 means common ap, 1 means wifi6, 2 means wifi6+ )*/
++	int category;
+ 	/** ANQP data */
+ 	struct wpa_bss_anqp *anqp;
+ 	/** Length of the following IE field in octets (from Probe Response) */
+Index: wpa-2.9/wpa_supplicant/dbus/dbus_new.c
+===================================================================
+--- wpa-2.9.orig/wpa_supplicant/dbus/dbus_new.c	2019-08-07 21:25:25.000000000 +0800
++++ wpa-2.9/wpa_supplicant/dbus/dbus_new.c	2021-04-23 20:00:46.988993251 +0800
+@@ -2820,6 +2820,11 @@
+ 	  NULL,
+ 	  NULL
+ 	},
++	{ "Category", WPAS_DBUS_NEW_IFACE_BSS, "q",
++	  wpas_dbus_getter_bss_category,
++	  NULL,
++	  NULL
++	},
+ 	{ "Frequency", WPAS_DBUS_NEW_IFACE_BSS, "q",
+ 	  wpas_dbus_getter_bss_frequency,
+ 	  NULL,
+@@ -2854,7 +2859,7 @@
+ 	  wpas_dbus_getter_bss_age,
+ 	  NULL,
+ 	  NULL
+-	},
++	},	
+ 	{
+ 	  "RoamTime", WPAS_DBUS_NEW_IFACE_INTERFACE, "u",
+ 	  wpas_dbus_getter_roam_time,
+Index: wpa-2.9/wpa_supplicant/dbus/dbus_new_handlers.c
+===================================================================
+--- wpa-2.9.orig/wpa_supplicant/dbus/dbus_new_handlers.c	2021-03-19 16:42:26.000000000 +0800
++++ wpa-2.9/wpa_supplicant/dbus/dbus_new_handlers.c	2021-04-23 20:00:46.992993301 +0800
+@@ -4433,6 +4433,22 @@
+ 						&freq, error);
+ }
+ 
++dbus_bool_t wpas_dbus_getter_bss_category(
++	const struct wpa_dbus_property_desc *property_desc,
++	DBusMessageIter *iter, DBusError *error, void *user_data)
++{
++	struct bss_handler_args *args = user_data;
++	struct wpa_bss *res;
++	u16 category;
++
++	res = get_bss_helper(args, error, __func__);
++	if (!res)
++		return FALSE;
++
++	category = (u16) res->category;
++	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_UINT16,
++						&category, error);
++}
+ 
+ static int cmp_u8s_desc(const void *a, const void *b)
+ {
+Index: wpa-2.9/wpa_supplicant/dbus/dbus_new_handlers.h
+===================================================================
+--- wpa-2.9.orig/wpa_supplicant/dbus/dbus_new_handlers.h	2019-08-07 21:25:25.000000000 +0800
++++ wpa-2.9/wpa_supplicant/dbus/dbus_new_handlers.h	2021-04-23 20:00:46.992993301 +0800
+@@ -190,6 +190,7 @@
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_mode);
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_signal);
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_frequency);
++DECLARE_ACCESSOR(wpas_dbus_getter_bss_category);
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_rates);
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_wpa);
+ DECLARE_ACCESSOR(wpas_dbus_getter_bss_rsn);
