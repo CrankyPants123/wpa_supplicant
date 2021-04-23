@@ -1,0 +1,33 @@
+ wpa_adapts_to_huawei_driver
+ .
+ wpa (2:2.9-1kylin4hw1) v101; urgency=medium
+ .
+   * debian/patches/huawei_wpa_adapts_to_huawei_driver.patch:
+     - wpa_adapts_to_huawei_driver.
+Author: zhouxiali <zhouxiali@kylinos.cn>
+
+---
+The information above should follow the Patch Tagging Guidelines, please
+checkout http://dep.debian.net/deps/dep3/ to learn about the format. Here
+are templates for supplementary fields that you might want to add:
+
+Origin: <vendor|upstream|other>, <url of original patch>
+Bug: <url in upstream bugtracker>
+Bug-Debian: https://bugs.debian.org/<bugnumber>
+Bug-Ubuntu: https://launchpad.net/bugs/<bugnumber>
+Forwarded: <no|not-needed|url proving that it has been forwarded>
+Reviewed-By: <name and email of someone who approved the patch>
+Last-Update: 2020-11-02
+
+--- wpa-2.9.orig/wpa_supplicant/Makefile
++++ wpa-2.9/wpa_supplicant/Makefile
+@@ -6,6 +6,9 @@ ifndef CFLAGS
+ CFLAGS = -MMD -O2 -Wall -g
+ endif
+ 
++CFLAGS += -fstack-protector-all -fPIC -ftrapv -D_FORTIFY_SOURCE=2 -O2
++LDFLAGS += -Wl,-z,noexecstack,-z,relro,-z,now,-s
++
+ ifdef LIBS
+ # If LIBS is set with some global build system defaults, clone those for
+ # LIBS_c and LIBS_p to cover wpa_passphrase and wpa_cli as well.
