@@ -1,3 +1,9 @@
+wpa (2:2.9-1kylin4hw4) v101; urgency=medium
+
+  *  增加了对于wifi6/6+的支持
+
+ -- chenlelin <chenlelin@kylinos.cn>  Fri, 34 Apr 2021 16:44:16 +0800
+
 wpa (2:2.9-1kylin4hw3) v101; urgency=medium
 
   *  wifi扫描优化
