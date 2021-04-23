@@ -2820,11 +2820,6 @@ static const struct wpa_dbus_property_desc wpas_dbus_bss_properties[] = {
 	  NULL,
 	  NULL
 	},
-	{ "Category", WPAS_DBUS_NEW_IFACE_BSS, "q",
-	  wpas_dbus_getter_bss_category,
-	  NULL,
-	  NULL
-	},
 	{ "Frequency", WPAS_DBUS_NEW_IFACE_BSS, "q",
 	  wpas_dbus_getter_bss_frequency,
 	  NULL,
@@ -2859,7 +2854,7 @@ static const struct wpa_dbus_property_desc wpas_dbus_bss_properties[] = {
 	  wpas_dbus_getter_bss_age,
 	  NULL,
 	  NULL
-	},	
+	},
 	{
 	  "RoamTime", WPAS_DBUS_NEW_IFACE_INTERFACE, "u",
 	  wpas_dbus_getter_roam_time,

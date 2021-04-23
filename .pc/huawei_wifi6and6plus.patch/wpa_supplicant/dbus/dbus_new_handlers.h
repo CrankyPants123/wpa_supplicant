@@ -190,7 +190,6 @@ DECLARE_ACCESSOR(wpas_dbus_getter_bss_privacy);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_mode);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_signal);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_frequency);
-DECLARE_ACCESSOR(wpas_dbus_getter_bss_category);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_rates);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_wpa);
 DECLARE_ACCESSOR(wpas_dbus_getter_bss_rsn);

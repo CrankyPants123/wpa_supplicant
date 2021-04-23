@@ -12,3 +12,4 @@ wpa_service_ignore-on-isolate.patch
 CVE-2019-16275.patch
 git_realtek_macrand.patch
 huawei_wpa_adapts_to_huawei_driver.patch
+huawei_wifi6and6plus.patch

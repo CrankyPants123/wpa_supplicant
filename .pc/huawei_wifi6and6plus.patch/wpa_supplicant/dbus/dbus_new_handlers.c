@@ -4433,22 +4433,6 @@ dbus_bool_t wpas_dbus_getter_bss_frequency(
 						&freq, error);
 }
 
-dbus_bool_t wpas_dbus_getter_bss_category(
-	const struct wpa_dbus_property_desc *property_desc,
-	DBusMessageIter *iter, DBusError *error, void *user_data)
-{
-	struct bss_handler_args *args = user_data;
-	struct wpa_bss *res;
-	u16 category;
-
-	res = get_bss_helper(args, error, __func__);
-	if (!res)
-		return FALSE;
-
-	category = (u16) res->category;
-	return wpas_dbus_simple_property_getter(iter, DBUS_TYPE_UINT16,
-						&category, error);
-}
 
 static int cmp_u8s_desc(const void *a, const void *b)
 {

@@ -19,20 +19,6 @@ struct wpa_scan_res;
 #define WPA_BSS_ASSOCIATED		BIT(5)
 #define WPA_BSS_ANQP_FETCH_TRIED	BIT(6)
 
-#define WIFI6WIFI6PLUS_NARROWBAND_CAPABILITY 0x20
-#define WIFI6WIFI6PLUS_HT_PRIMARY_CHANNEL_INDEX         0
-#define WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT0_INDEX            1
-#define WIFI6WIFI6PLUS_VHT_CHANNEL_CENTER_SEGMENT1_INDEX            2
-#define WIFI6WIFI6PLUS_WIFI_CAPABILITY_DEFAULT 0
-#define WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6 1
-#define WIFI6WIFI6PLUS_WIFI_CATEGORY_WIFI6_PLUS 2
-#define WIFI6WIFI6PLUS_SUPPORTED 1
-#define WIFI6WIFI6PLUS_NOT_SUPPORTED 0
-#define WIFI6WIFI6PLUS_NARROWBAND_OFFSET        1
-#define WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE 0xFD
-#define WIFI6WIFI6PLUS_TYPE_NARROWBAND_SUBIE_INDEX 0x0B
-#define HW_IE_VENDOR_TYPE 0x00E0FC40
-
 struct wpa_bss_anqp_elem {
 	struct dl_list list;
 	u16 infoid;
@@ -116,8 +102,6 @@ struct wpa_bss {
 	unsigned int est_throughput;
 	/** Signal-to-noise ratio in dB */
 	int snr;
-    /*indicating wifi category(0 means common ap, 1 means wifi6, 2 means wifi6+ )*/
-	int category;
 	/** ANQP data */
 	struct wpa_bss_anqp *anqp;
 	/** Length of the following IE field in octets (from Probe Response) */
